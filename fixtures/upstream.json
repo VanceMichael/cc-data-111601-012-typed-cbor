@@ -1,0 +1,31 @@
+{
+  "catalog": {
+    "entry": "/sequence",
+    "resources": [
+      "/primary",
+      "/sequence",
+      "/nested",
+      "/truncated"
+    ]
+  },
+  "resources": {
+    "/primary": {
+      "file": "primary.bin",
+      "type": "application/octet-stream"
+    },
+    "/sequence": {
+      "file": "resource-01.bin",
+      "type": "application/octet-stream",
+      "chunkSize": 2
+    },
+    "/truncated": {
+      "file": "resource-02.bin",
+      "type": "application/octet-stream",
+      "chunkSize": 1
+    },
+    "/nested": {
+      "file": "resource-03.bin",
+      "type": "application/octet-stream"
+    }
+  }
+}
