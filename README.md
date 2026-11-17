@@ -4,9 +4,9 @@
 
 ## 当前能力
 
-支持简单 CBOR 字符串键映射的单值查看与原件保存，未有无损异构条目模型。
+单件读取保留原有简单契约；序列接收使用无损类型化模型：二进制值、整数、tag、浮点、map 条目顺序和重复键都能回到原始资料。数字 `1` 与字符串 `"1"`、字节、tag 等不同类型的键互不折叠，重复键不会只保留最后一个值。
 
-`src/reader.mjs` 提供现有单件读取契约；`src/transport.mjs` 只访问配置来源的同源地址，拒绝隐式跳转；`src/store.mjs` 保存原件摘要和解释结果。`src/service.mjs` 是产品入口，`src/provider.mjs` 是独立 HTTP 联调来源，内容为无个人信息的本地样例。
+`src/reader.mjs` 是兼容的单件读取契约；`src/cbor.mjs` 是无损 RFC 8949 子集解码器与按块增量序列解码器；`src/model.mjs` 是类型化规范键与查询；`src/store.mjs` 是持久收件与条目检索；`src/transport.mjs` 只访问配置来源的同源地址，拒绝隐式跳转；`src/service.mjs` 是产品入口，`src/provider.mjs` 是独立 HTTP 联调来源，内容为无个人信息的本地样例。
 
 ## 环境与运行
 
@@ -27,8 +27,10 @@ npm run demo
 
 - GET /health：服务状态。
 - POST /intakes，JSON 为 {"path":"/primary"}：按现有 reader 接收单件原件；内容解释失败不登记资料。
-- GET /records：持久接收目录；同 source URL、同摘要重领返回原 id。
-- GET /objects/{digest}：读取已保存的原始字节。
+- POST /sequences，JSON 为 {"path":"/sequence"}：按 CBOR sequence 增量接收；可选 `allowPending`。
+- GET /records：持久接收目录；同 source URL、同摘要重领返回原 id。无参数时为原数组；带任一查询参数时为 `{"records":...,"entries":...}`，支持 `keyType`/`key`/`tag`/`valueType`/`kind`/`digest`。
+- GET /records/{id}/bytes：返回该记录在来源对象中的精确字节区间。
+- GET /objects/{digest}：读取已保存的原始字节（序列接收时为整个来源对象）。
 
 这四项是兼容接口，后续扩展可以新增业务入口，但不能把 GET 请求变为写操作。收件记录当前只包含单件 raw 对象，不代表关联资料已完整。
 
