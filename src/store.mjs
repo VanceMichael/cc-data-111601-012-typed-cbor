@@ -23,7 +23,7 @@ export class Store {
   async list() {
     return JSON.parse(await readFile(join(this.directory, 'index.json'), 'utf8'));
   }
-  async accept(bytes, source, parsed) {
+  async commit(bytes, source, parsed) {
     const digest = createHash('sha256').update(bytes).digest('hex');
     const operation = this.pending.then(async () => {
       const records = await this.list();
@@ -37,6 +37,19 @@ export class Store {
     });
     this.pending = operation.catch(() => {});
     return operation;
+  }
+  // 兼容入口：简单字符串键映射的单值解释。
+  async accept(bytes, source, parsed) {
+    return this.commit(bytes, source, parsed);
+  }
+  // 类型化入口：保存原件与无损序列解释（含每个顶层值的字节跨度）。
+  async acceptTyped(bytes, source, representation) {
+    return this.commit(bytes, source, { kind: 'cbor-sequence', representation });
+  }
+  async find(digest) {
+    if (!/^[a-f0-9]{64}$/.test(digest)) throw new Error('invalid_digest');
+    const records = await this.list();
+    return records.find(record => record.digest === digest) ?? null;
   }
   async object(digest) {
     if (!/^[a-f0-9]{64}$/.test(digest)) throw new Error('invalid_digest');

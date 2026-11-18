@@ -4,9 +4,12 @@
 
 ## 当前能力
 
-支持简单 CBOR 字符串键映射的单值查看与原件保存，未有无损异构条目模型。
+- 兼容能力：简单 CBOR 字符串键映射的单值查看与原件保存（`src/reader.mjs`，入口 `POST /intakes`）。
+- 类型化能力：RFC 8949 交换子集的无损 CBOR/CBOR sequence 接收（`src/cbor.mjs`，入口 `POST /sequence-intakes`）。数字键 1、文本键 "1"、标签键互不折叠；重复 map 键保留全部条目与原件顺序；二进制值、uint64/nint64、tag、不定长容器、简单值与 float16/32/64（含 NaN/Infinity/负零标记）均以 JSON 安全节点表示。
+- 流式保真：按字节流增量解析，分块位置与值边界无关；每个顶层值记录在原件中的绝对字节跨度。截断的尾值可等待续收，最终不完整显式拒收；结构损坏毒化来源，不扫描后续字节猜测新记录。
+- 可查询：类型化键精确查询、整数范围（有符号 BigInt 比较）、嵌套路径回溯；原件读取支持交换约定的单一闭合 bytes 范围。
 
-`src/reader.mjs` 提供现有单件读取契约；`src/transport.mjs` 只访问配置来源的同源地址，拒绝隐式跳转；`src/store.mjs` 保存原件摘要和解释结果。`src/service.mjs` 是产品入口，`src/provider.mjs` 是独立 HTTP 联调来源，内容为无个人信息的本地样例。
+`src/reader.mjs` 提供现有单件读取契约；`src/transport.mjs` 只访问配置来源的同源地址，拒绝隐式跳转，并提供流式领取；`src/store.mjs` 保存原件摘要和解释结果。`src/service.mjs` 是产品入口，`src/provider.mjs` 是独立 HTTP 联调来源，内容为无个人信息的本地样例。
 
 ## 环境与运行
 
@@ -27,10 +30,13 @@ npm run demo
 
 - GET /health：服务状态。
 - POST /intakes，JSON 为 {"path":"/primary"}：按现有 reader 接收单件原件；内容解释失败不登记资料。
+- POST /sequence-intakes，JSON 为 {"path":"/sequence"}：流式接收 CBOR sequence，分块边界任意；截断或结构损坏返回 422 且不登记。
 - GET /records：持久接收目录；同 source URL、同摘要重领返回原 id。
-- GET /objects/{digest}：读取已保存的原始字节。
+- GET /objects/{digest}：读取已保存的原始字节；支持 `Range: bytes=start-end` 单一闭合范围（206 + Content-Range），非法或越界返回 416。
+- GET /documents/{digest}：类型化无损表示，含每个顶层值节点与原件字节跨度；旧的兼容记录返回 409。
+- GET /documents/{digest}/entries：类型化 map 条目查询，参数 `keyType`（uint/nint/text/bytes/bool/null/undefined/simple）、`key`、`tag`、整数范围 `keyMin`/`keyMax`；重复键返回全部命中并保持顺序，结果含顶层项序号、嵌套路径与键值节点。
 
-这四项是兼容接口，后续扩展可以新增业务入口，但不能把 GET 请求变为写操作。收件记录当前只包含单件 raw 对象，不代表关联资料已完整。
+GET 请求均为只读，不会把 GET 变为写操作。收件记录当前只包含单件 raw 对象，不代表关联资料已完整。
 
 ## 来源与资料
 
@@ -38,4 +44,4 @@ npm run demo
 
 ## 测试与构建
 
-`npm test` 覆盖现有读取器、畸形输入、真实 HTTP 领取、原件一致性、持久重开、同源边界和范围响应；领域读取行为在 test/domain.test.mjs。`npm run build` 对运行模块逐个执行语法校验并复制到 dist。`docker build -t typed-cbor:local .` 可创建产品运行镜像；镜像默认运行实际演示，不含远程业务凭据。
+`npm test` 覆盖现有读取器、畸形输入、真实 HTTP 领取、原件一致性、持久重开、同源边界和范围响应；领域读取行为在 test/domain.test.mjs，完整 CBOR 子集与序列增量解析在 test/cbor.test.mjs，类型化接收/查询/拒收端到端行为在 test/typed-inbox.test.mjs。`npm run build` 对运行模块逐个执行语法校验并复制到 dist。`docker build -t typed-cbor:local .` 可创建产品运行镜像；镜像默认运行实际演示，不含远程业务凭据。
